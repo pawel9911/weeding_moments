@@ -2,8 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import Image from "next/image";
 
-// Definicja zunifikowanego interfejsu danych zintegrowanego ze stroną galerii
 interface UnifiedPhoto {
   id: string;
   url: string;
@@ -17,6 +17,16 @@ interface GalleryProps {
   onDelete: (id: string) => void;
 }
 
+// Funkcja optymalizująca linki z Google User Content
+const getOptimizedUrl = (url: string, size: number = 800) => {
+  if (url.includes("googleusercontent.com")) {
+    // Usuwamy istniejące parametry wielkości (np. =wX lub =sX) i dodajemy optymalny rozmiar i format
+    const cleanUrl = url.split("=")[0];
+    return `${cleanUrl}=w${size}-rw`; // "-rw" wymusza nowoczesny, lekki format WebP
+  }
+  return url;
+};
+
 const Gallery = ({ photos, onDelete }: GalleryProps) => {
   const [selectedPhoto, setSelectedPhoto] = useState<UnifiedPhoto | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
@@ -27,72 +37,76 @@ const Gallery = ({ photos, onDelete }: GalleryProps) => {
     { id: "bride", label: "Młoda Para" },
   ];
 
-  // Filtrowanie zdjęć (na tym etapie filtrujemy wersje lokalne i zdalne, w przyszłości możesz dodać tagi)
   const filteredPhotos = photos.filter((photo) => {
     if (activeFilter === "all") return true;
-    // Przykład: Możesz przypisać odpowiednie tagi do zdjęć na podstawie logiki aplikacji
     return true;
   });
 
   return (
     <div className="w-full px-0 pt-2 pb-24 bg-[#0d070b] relative min-h-screen flex flex-col justify-between">
-      {/* Układ siatki Masonry (Wielokolumnowy CSS) */}
+      {/* Układ siatki Masonry */}
       <motion.div
         layout
         className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-2 w-full space-y-2 px-1"
       >
         <AnimatePresence mode="popLayout">
-          {filteredPhotos.map((photo) => (
-            <motion.div
-              key={photo.id}
-              layoutId={`photo-container-${photo.id}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              whileHover={{
-                scale: 0.99,
-                filter: "brightness(1.05)",
-              }}
-              transition={{ type: "spring", stiffness: 260, damping: 25 }}
-              className="break-inside-avoid relative overflow-hidden bg-[#160b13] cursor-pointer rounded-xl border border-white/5 shadow-lg group inline-block w-full"
-              onClick={() => setSelectedPhoto(photo)}
-            >
-              {/* Renderowanie zdjęcia z obsługą asynchronicznego ładowania proporcji */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photo.url}
-                alt="Zdjęcie weselne"
-                className="w-full h-auto object-cover rounded-xl transition-transform duration-700 group-hover:scale-[1.01]"
-                loading="lazy"
-              />
+          {filteredPhotos.map((photo) => {
+            // Generujemy mniejszą wersję dla siatki (np. szerokość 500px)
+            const gridSrc = getOptimizedUrl(photo.url, 500);
 
-              {/* Subtelny status i overlay zależny od tego, czy zdjęcie jest w chmurze czy lokalnie offline */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end text-left font-mono">
-                <span className="text-[10px] tracking-wider uppercase font-sans font-medium">
-                  {photo.isLocal ? (
-                    <span className="text-amber-400 animate-pulse">
-                      ⏳ Oczekuje w kolejce
-                    </span>
-                  ) : (
-                    <span className="text-emerald-400">
-                      ✨ Zapisano w albumie
-                    </span>
-                  )}
-                </span>
-              </div>
+            return (
+              <motion.div
+                key={photo.id}
+                layoutId={`photo-container-${photo.id}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                whileHover={{
+                  scale: 0.99,
+                  filter: "brightness(1.05)",
+                }}
+                transition={{ type: "spring", stiffness: 260, damping: 25 }}
+                className="break-inside-avoid relative overflow-hidden bg-[#160b13] cursor-pointer rounded-xl border border-white/5 shadow-lg group inline-block w-full aspect-auto"
+                onClick={() => setSelectedPhoto(photo)}
+              >
+                {/* Użycie unmanaged Next.js Image do zachowania elastycznego układu columns CSS */}
+                <Image
+                  src={gridSrc}
+                  alt="Zdjęcie weselne"
+                  width={400} // Wartości szacunkowe dla poprawnego podziału aspect-ratio
+                  height={600}
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                  className="w-full h-auto object-cover rounded-xl transition-transform duration-700 group-hover:scale-[1.01]"
+                  priority={false}
+                />
 
-              {/* Stały wskaźnik stanu dla zdjęć offline w rogu ekranu, bez konieczności hovera */}
-              {photo.isLocal && (
-                <div className="absolute top-2 right-2 bg-amber-500/80 backdrop-blur-md text-white text-[9px] px-2 py-0.5 rounded-full font-mono animate-pulse">
-                  OFFLINE
+                {/* Status i overlay */}
+                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end text-left font-mono">
+                  <span className="text-[10px] tracking-wider uppercase font-sans font-medium">
+                    {photo.isLocal ? (
+                      <span className="text-amber-400 animate-pulse">
+                        ⏳ Oczekuje w kolejce
+                      </span>
+                    ) : (
+                      <span className="text-emerald-400">
+                        ✨ Zapisano w albumie
+                      </span>
+                    )}
+                  </span>
                 </div>
-              )}
-            </motion.div>
-          ))}
+
+                {photo.isLocal && (
+                  <div className="absolute top-2 right-2 bg-amber-500/80 backdrop-blur-md text-white text-[9px] px-2 py-0.5 rounded-full font-mono animate-pulse">
+                    OFFLINE
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </motion.div>
 
-      {/* DYNAMICZNY PODGLĄD PEŁNOEKRANOWY (MODAL ANIMEPRESENCE) */}
+      {/* MODAL PEŁNOEKRANOWY */}
       <AnimatePresence>
         {selectedPhoto && (
           <motion.div
@@ -107,15 +121,18 @@ const Gallery = ({ photos, onDelete }: GalleryProps) => {
               className="w-full max-w-4xl max-h-[85vh] relative flex flex-col items-center justify-center"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Standardowy tag img gwarantuje perfekcyjne dopasowanie i zachowanie proporcji w oknie modalnym */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={selectedPhoto.url}
-                alt="Pełny widok zdjęcia"
-                className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/5"
-              />
+              <div className="relative w-full h-[75vh]">
+                <Image
+                  src={getOptimizedUrl(selectedPhoto.url, 1200)} // Większa wersja do modalu (max 1200px)
+                  alt="Pełny widok zdjęcia"
+                  fill
+                  sizes="(max-width: 1200px) 100vw"
+                  className="object-contain rounded-2xl shadow-2xl border border-white/5"
+                  priority
+                />
+              </div>
 
-              {/* Dolny panel informacyjny modalu */}
+              {/* Panel informacyjny modalu */}
               <div className="w-full max-w-2xl mt-4 flex justify-between items-end px-2 font-mono">
                 <div className="text-left">
                   <p className="text-xs uppercase tracking-widest text-pink-400 font-semibold font-sans">
@@ -129,7 +146,6 @@ const Gallery = ({ photos, onDelete }: GalleryProps) => {
                   </p>
                 </div>
 
-                {/* Przycisk usuwania wyświetlany tylko dla lokalnych, niezsynchronizowanych zdjęć */}
                 {selectedPhoto.isLocal && (
                   <button
                     onClick={async () => {
@@ -143,7 +159,6 @@ const Gallery = ({ photos, onDelete }: GalleryProps) => {
                 )}
               </div>
 
-              {/* Przycisk zamknięcia */}
               <button
                 onClick={() => setSelectedPhoto(null)}
                 className="absolute -top-12 right-0 bg-white/5 border border-white/10 text-white w-10 h-10 hover:bg-[#e05397] hover:border-[#e05397] transition-all duration-300 rounded-full flex items-center justify-center text-sm"
@@ -155,7 +170,7 @@ const Gallery = ({ photos, onDelete }: GalleryProps) => {
         )}
       </AnimatePresence>
 
-      {/* DOLNY DIALOG FILTROWANIA */}
+      {/* DIALOG FILTROWANIA */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-2 w-full max-w-xs sm:max-w-sm">
         <div className="bg-[#160b13]/85 border border-[#2d1626] shadow-2xl backdrop-blur-md p-1.5 rounded-2xl flex justify-between items-center w-full font-mono text-xs tracking-wider">
           {filters.map((filter) => {
