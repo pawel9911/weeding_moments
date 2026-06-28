@@ -6,8 +6,7 @@ import { db } from "@/db/dexieDB";
 import { useLiveQuery } from "dexie-react-hooks";
 import Gallery from "@/components/Gallery";
 import Link from "next/link";
-
-const VALID_PINS = ["1234", "5678", "9999"];
+import { VALID_PINS } from "@/constant";
 
 export default function GalleryPage() {
   const searchParams = useSearchParams();

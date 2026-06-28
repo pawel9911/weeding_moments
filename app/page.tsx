@@ -3,23 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-
-const VALID_PINS = [
-  "0001",
-  "0002",
-  "0003",
-  "0004",
-  "0005",
-  "0006",
-  "0007",
-  "0008",
-  "0009",
-  "0010",
-  "0011",
-  "0012",
-  "0013",
-  "0207",
-];
+import { VALID_PINS } from "@/constant";
 
 export default function HomePage() {
   const router = useRouter();
